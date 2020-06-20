@@ -1,4 +1,10 @@
 `define FIFO_DEPTH 10
-`define FIFO_WIDTH 66
+`define PKT_WIDTH 130
+`define FIFO_WIDTH 130
 `define DATA_WIDTH 32
 `define PORT_COUNT 2
+`define CRC_DATA 32'hFAAB
+`define PORT_A_ADDR 32'hABCD
+`define PORT_B_ADDR 32'hEFEF
+`define IP_PORT_A_ADDR 32'h0123
+`define IP_PORT_B_ADDR 32'h4567
