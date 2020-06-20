@@ -22,6 +22,16 @@ module eth_port_fifo
     assign full = full_temp;
 
 
+//    initial begin
+//        empty = 1'b1;
+//        full = 1'b0;
+//    end
+
+//    assign full = (wr_ptr == `FIFO_DEPTH && rd_ptr == 0) ? 1: 0;
+//    assign full = wr_ptr == `FIFO_DEPTH ? (rd_ptr == 0 ? 1: 0): 0;
+//    assign empty= (rd_ptr && wr_ptr == 0 ) ? 1: 0;
+//    assign empty= ~rd_ptr ? (~wr_ptr ? 1: 0): 0;
+
     always @(*)
     begin
         if(wr_ptr == 0 && rd_ptr ==0)
@@ -53,10 +63,10 @@ module eth_port_fifo
                 if(~full)
                 begin
                     mem[wr_ptr] <= data_in;
-                    $display("SW_DEBUG: data = %h filled in fifo loc %h \n",mem[wr_ptr], wr_ptr);
+                    $display("SW_DEBUG FIFO: data = %h filled in fifo loc %h \n",mem[wr_ptr], wr_ptr);
                     if(wr_ptr == `FIFO_DEPTH -1)
                     begin
-                        $display("SW_DEBUG: wr_ptr reached the end of fifo");
+                        $display("SW_DEBUG FIFO: wr_ptr reached the end of fifo");
                         wr_ptr = 0;
                     end
                     else
@@ -64,7 +74,7 @@ module eth_port_fifo
                 end
                 else
                 begin
-                    $display("SW_DEBUG: FIFO is full \n");
+                    $display("SW_DEBUG FIFO: FIFO is full \n");
                 end
             end
             else if(rd_en)
@@ -74,7 +84,7 @@ module eth_port_fifo
                     data_out <= mem[rd_ptr];
                     if(rd_ptr == `FIFO_DEPTH -1)
                     begin
-                        $display("SW_DEBUG: rd_ptr reached the end of fifo");
+                        $display("SW_DEBUG FIFO: rd_ptr reached the end of fifo");
                         rd_ptr = 0;
                     end
                     else
@@ -82,7 +92,7 @@ module eth_port_fifo
                 end
                 else 
                 begin
-                    $display("SW_DEBUG: FIFO is empty \n");
+                    $display("SW_DEBUG FIFO: FIFO is empty \n");
                 end
             end
         end
