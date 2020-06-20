@@ -3,28 +3,27 @@ module eth_rx_fsm
     (
         input clk,
         input rstn,
-        input [31:0] indata,
+        input [`DATA_WIDTH -1:0] indata,
         input insop, ineop,
         output reg out_wr_en,
-        output reg [66:0] out_data
+        output reg [`PKT_WIDTH-1:0] out_data
     );
-
-    //TODO support for src and crc
-    // pkt structure 
-    // [eop] [31:0 data] [31: 0 destination address] [sop]
 
     bit [2:0] current_state, next_state;
     parameter IDLE = 4'd0;
     parameter DEST_ADDR_RX= 4'd1;
-    parameter DATA_RX= 4'd2;
-    parameter DONE = 4'd3;
+    parameter SRC_ADDR_RX= 4'd2;
+    parameter DATA_RX= 4'd3;
+    parameter DONE = 4'd4;
 
     bit pkt_sop, pkt_eop;
     bit data_begin;
-    bit [31:0] pkt_dest_addr, pkt_data;
+    bit [`DATA_WIDTH -1:0] pkt_dest_addr, pkt_src_addr, pkt_data, pkt_crc_data;
 
-    parameter PORT_A_ADDR = 32'hABCD;
-    parameter PORT_B_ADDR = 32'hEFEF;
+//    parameter PORT_A_ADDR = 32'hABCD;
+//    parameter PORT_B_ADDR = 32'hEFEF;
+//    parameter IP_PORT_A_ADDR = 32'h0123;
+//    parameter IP_PORT_B_ADDR = 32'h4567;
     
 
     always @(posedge clk)
@@ -61,16 +60,29 @@ module eth_rx_fsm
 
            DEST_ADDR_RX:
            begin
-               if(indata == PORT_A_ADDR || indata == PORT_B_ADDR)
+               if(indata == `PORT_A_ADDR || indata == `PORT_B_ADDR)
                begin
                    pkt_dest_addr = indata;
-                   next_state = DATA_RX;
+                   next_state = SRC_ADDR_RX;
                end
                else
                begin
-                   $display("SW_DEBUG: Invalid Destination address \n");
+                   $display("SW_DEBUG RX_FSM: Invalid Destination address \n");
                end
            end
+
+           SRC_ADDR_RX:
+               begin
+                   if(indata == `IP_PORT_A_ADDR || indata == `IP_PORT_B_ADDR)
+                   begin
+                       pkt_src_addr = indata;
+                       next_state = DATA_RX;
+                   end
+                   else
+                   begin
+                       $display("SW_DEBUG RX_FSM: Invalid Source address \n" );
+                   end
+               end
 
            DATA_RX:
            begin
@@ -80,7 +92,13 @@ module eth_rx_fsm
 
            DONE:
            begin
-               out_data = {pkt_eop, pkt_data, pkt_dest_addr, pkt_sop}; //[66......0]
+               //Generating CRC data, Hardcoding for now
+               pkt_crc_data = `CRC_DATA;
+
+               //             127,      126-97,       96-65,      64-33,   32-1        ,    0
+               //out_data = {pkt_eop, pkt_crc_data, pkt_src_addr, pkt_data, pkt_dest_addr, pkt_sop}; //[127......0]
+               //             129,      128-97,       96-65,      64-33,   32-1        ,    0
+               out_data = {pkt_eop, pkt_crc_data, pkt_src_addr, pkt_data, pkt_dest_addr, pkt_sop}; //[127......0]
                out_wr_en = 1;
                next_state = IDLE;
            end
