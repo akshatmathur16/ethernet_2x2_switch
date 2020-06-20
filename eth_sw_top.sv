@@ -20,14 +20,13 @@ module eth_sw_top
         output reg portAstall, portBstall //will use to disable output data signals of A,B FIFOs, feature unsupported
     );
 
-    parameter PORT_A_ADDR = 32'hABCD;
-    parameter PORT_B_ADDR = 32'hEFEF;
-
     bit out_wr_en [`PORT_COUNT];
 
     bit fifo_empty_out [`PORT_COUNT];
     bit fifo_full_out [`PORT_COUNT];
     bit [`DATA_WIDTH-1: 0] fifo_dest_addr[`PORT_COUNT];
+    bit [`DATA_WIDTH-1: 0] fifo_src_addr[`PORT_COUNT];
+    bit [`DATA_WIDTH-1: 0] fifo_crc_data[`PORT_COUNT];
 
     bit [`FIFO_WIDTH-1: 0] out_data[`PORT_COUNT-1: 0];
 
@@ -40,6 +39,11 @@ module eth_sw_top
 
     assign fifo_dest_addr[0] = (rd_en[0] && ~rd_en[1] ? (~portAstall ? fifo_data_out[0][32:1] :0):0); 
     assign fifo_dest_addr[1] = (rd_en[1] && ~rd_en[0] ? (~portBstall ? fifo_data_out[1][32:1] :0):0); 
+    assign fifo_src_addr[0] = (rd_en[0] && ~rd_en[1] ? (~portAstall ? fifo_data_out[0][96:65] :0):0); 
+    assign fifo_src_addr[1]  = (rd_en[1] && ~rd_en[0] ? (~portBstall ? fifo_data_out[1][96:65] :0):0); 
+    assign fifo_crc_data[0] = (rd_en[0] && ~rd_en[1] ? (~portAstall ? fifo_data_out[0][128:97] :0):0); 
+    assign fifo_crc_data[1]  = (rd_en[1] && ~rd_en[0] ? (~portBstall ? fifo_data_out[1][128:97] :0):0); 
+
 
     eth_rx_fsm inst_eth_rx_fsm_A
         (
@@ -109,33 +113,46 @@ module eth_sw_top
                     begin
                         if(~fifo_empty_out[0])
                         begin
-                            if(fifo_dest_addr[0] == PORT_A_ADDR)
+                            if(fifo_crc_data[0] == `CRC_DATA)
                             begin
-                                outdataA <= fifo_data_out[0][64:33];
-                                outsopA <= fifo_data_out[0][0];
-                                outeopA <= fifo_data_out[0][65];
-                                $display("SW_DEBUG: Data from Port A read and transmitted to output portA \n");
-                            end
-                            else if(fifo_dest_addr[0] == PORT_B_ADDR)
-                            begin
-                                outdataB <= fifo_data_out[0][64:33];
-                                outsopB <= fifo_data_out[0][0];
-                                outeopB <= fifo_data_out[0][65];
-                                $display("SW_DEBUG: Data from Port A read and transmitted to output portB \n");
+                                if(fifo_dest_addr[0] == `PORT_A_ADDR)
+                                begin
+                                    outdataA <= fifo_data_out[0][64:33];
+                                    outsopA <= fifo_data_out[0][0];
+                                    outeopA <= fifo_data_out[0][129];
+                                    $display("SW_DEBUG TOP: Data =%h from Port A read and transmitted to output portA \n",fifo_data_out[0][64:33]);
+                                    @(posedge clk);
+                                    outsopA <= 'b0; 
+                                    outeopA <= 'b0; 
+                                end
+                                else if(fifo_dest_addr[0] == `PORT_B_ADDR)
+                                begin
+                                    outdataB <= fifo_data_out[0][64:33];
+                                    outsopB <= fifo_data_out[0][0];
+                                    outeopB <= fifo_data_out[0][129];
+                                    $display("SW_DEBUG TOP: Data = %h from Port A read and transmitted to output portB \n",fifo_data_out[0][64:33]);
+                                    @(posedge clk);
+                                    outsopB <= 'b0; 
+                                    outeopB <= 'b0; 
+                                end
+                                else
+                                begin
+                                    $display("SW_DEBUG TOP: Incorrect destination address in the packet \n");
+                                end
                             end
                             else
                             begin
-                                $display("SW_DEBUG: Incorrect destination address in the packet \n");
+                                $display("SW_DEBUG TOP: Incorrect CRC address received at Input Port A, PKT Corrupted \n");
                             end
                         end
                         else
                         begin
-                            $display("SW_DEBUG: Port A FIFO is empty, Cannot read \n");
+                            $display("SW_DEBUG TOP: Port A FIFO is empty, Cannot read \n");
                         end
                     end
                     else
                     begin
-                        $display("SW_DEBUG: Port A stall signal asserted, FIFO will not be read \n");
+                        $display("SW_DEBUG TOP: Port A stall signal asserted, FIFO will not be read \n");
                     end
                 end
             end
@@ -157,28 +174,35 @@ module eth_sw_top
                     begin
                         if(~fifo_empty_out[1])
                         begin
-                            if(fifo_dest_addr[1] == PORT_A_ADDR)
+                            if(fifo_crc_data[1] == `CRC_DATA)
                             begin
-                                outdataA <= fifo_data_out[1][64:33];
-                                outsopA <= fifo_data_out[1][0];
-                                outeopA <= fifo_data_out[1][65];
-                                $display("SW_DEBUG: Data from Port B read and transmitted to output portA \n");
-                            end
-                            else if(fifo_dest_addr[1] == PORT_B_ADDR)
-                            begin
-                                outdataB <= fifo_data_out[1][64:33];
-                                outsopB <= fifo_data_out[1][0];
-                                outeopB <= fifo_data_out[1][65];
-                                $display("SW_DEBUG: Data from Port B read and transmitted to output portB \n");
+                                if(fifo_dest_addr[1] == `PORT_A_ADDR)
+                                begin
+                                    outdataA <= fifo_data_out[1][64:33];
+                                    outsopA <= fifo_data_out[1][0];
+                                    outeopA <= fifo_data_out[1][129];
+                                    $display("SW_DEBUG TOP: Data from Port B read and transmitted to output portA \n");
+                                end
+                                else if(fifo_dest_addr[1] == `PORT_B_ADDR)
+                                begin
+                                    outdataB <= fifo_data_out[1][64:33];
+                                    outsopB <= fifo_data_out[1][0];
+                                    outeopB <= fifo_data_out[1][129];
+                                    $display("SW_DEBUG TOP: Data from Port B read and transmitted to output portB \n");
+                                end
+                                else
+                                    $display("SW_DEBUG TOP: Incorrect destination address in the packet \n");
                             end
                             else
-                                $display("SW_DEBUG: Incorrect destination address in the packet \n");
+                            begin
+                                $display("SW_DEBUG TOP: Incorrect CRC address received at Input Port B, PKT Corrupted \n");
+                            end
                         end
                         else
-                            $display("SW_DEBUG: Port B FIFO is empty, Cannot read \n");
+                            $display("SW_DEBUG TOP: Port B FIFO is empty, Cannot read \n");
                     end
                     else
-                        $display("SW_DEBUG: Port B stall signal asserted, FIFO will not be read \n");
+                        $display("SW_DEBUG TOP: Port B stall signal asserted, FIFO will not be read \n");
                 end
             end
         end
@@ -188,9 +212,9 @@ module eth_sw_top
             if(rstn)
             begin
                 if(rd_en[0] && rd_en[1]) 
-                    $display("SW_DEBUG: Trying to Read from both FIFOs, Feature Unsupported \n");
+                    $display("SW_DEBUG TOP: Trying to Read from both FIFOs, Feature Unsupported \n");
                 if(~rd_en[0] && ~rd_en[1]) 
-                    $display("SW_DEBUG: Application not reading from any port \n");
+                    $display("SW_DEBUG TOP: %t Application not reading from any port \n", $time);
             end
         end
 
