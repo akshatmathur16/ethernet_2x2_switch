@@ -5,11 +5,13 @@ module eth_rx_fsm
         input rstn,
         input [`DATA_WIDTH -1:0] indata,
         input insop, ineop,
+        input fifo_full,
         output reg out_wr_en,
         output reg [`PKT_WIDTH-1:0] out_data
     );
 
-    bit [2:0] current_state, next_state;
+    bit [2:0] current_state;
+    bit [2:0] next_state ='b1;
     parameter IDLE = 4'd0;
     parameter DEST_ADDR_RX= 4'd1;
     parameter SRC_ADDR_RX= 4'd2;
@@ -49,7 +51,6 @@ module eth_rx_fsm
                 if(insop)
                 begin
                     pkt_sop = insop;
-                    pkt_eop = ineop;
                     next_state = DEST_ADDR_RX;
                 end
                 else
@@ -67,7 +68,7 @@ module eth_rx_fsm
                end
                else
                begin
-                   $display("SW_DEBUG RX_FSM: Invalid Destination address \n");
+                   next_state = current_state;
                end
            end
 
@@ -80,7 +81,7 @@ module eth_rx_fsm
                    end
                    else
                    begin
-                       $display("SW_DEBUG RX_FSM: Invalid Source address \n" );
+                       next_state = current_state;
                    end
                end
 
@@ -94,13 +95,22 @@ module eth_rx_fsm
            begin
                //Generating CRC data, Hardcoding for now
                pkt_crc_data = `CRC_DATA;
+               pkt_eop = ineop;
 
                //             127,      126-97,       96-65,      64-33,   32-1        ,    0
                //out_data = {pkt_eop, pkt_crc_data, pkt_src_addr, pkt_data, pkt_dest_addr, pkt_sop}; //[127......0]
                //             129,      128-97,       96-65,      64-33,   32-1        ,    0
                out_data = {pkt_eop, pkt_crc_data, pkt_src_addr, pkt_data, pkt_dest_addr, pkt_sop}; //[127......0]
-               out_wr_en = 1;
-               next_state = IDLE;
+               if(fifo_full)
+               begin
+                   out_wr_en = 0;
+                   next_state = DONE;
+               end
+               else
+               begin
+                   out_wr_en = 1;
+                   next_state = IDLE;
+               end
            end
         endcase
     end
