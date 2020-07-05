@@ -7,7 +7,8 @@ module eth_port_fifo
         input rd_en,
         input [`FIFO_WIDTH -1: 0] data_in,
         output reg [`FIFO_WIDTH -1: 0] data_out,
-        output empty, full
+        output empty, full,
+        output reg valid
 
     );
 
@@ -21,20 +22,9 @@ module eth_port_fifo
     assign empty = empty_temp;
     assign full = full_temp;
 
-
-//    initial begin
-//        empty = 1'b1;
-//        full = 1'b0;
-//    end
-
-//    assign full = (wr_ptr == `FIFO_DEPTH && rd_ptr == 0) ? 1: 0;
-//    assign full = wr_ptr == `FIFO_DEPTH ? (rd_ptr == 0 ? 1: 0): 0;
-//    assign empty= (rd_ptr && wr_ptr == 0 ) ? 1: 0;
-//    assign empty= ~rd_ptr ? (~wr_ptr ? 1: 0): 0;
-
     always @(*)
     begin
-        if(wr_ptr == 0 && rd_ptr ==0)
+        if((wr_ptr == 0 && rd_ptr ==0) || (wr_ptr == rd_ptr))
             empty_temp = 1'b1;
         else 
             empty_temp = 1'b0;
@@ -51,6 +41,7 @@ module eth_port_fifo
             data_out <= 'b0;
             wr_ptr <= 0;
             rd_ptr <= 0;
+            valid <= 0;
             for(int i=0; i < `FIFO_DEPTH -1; i++)
             begin
                 mem[i] <= 'b0;
@@ -67,10 +58,10 @@ module eth_port_fifo
                     if(wr_ptr == `FIFO_DEPTH -1)
                     begin
                         $display("SW_DEBUG FIFO: wr_ptr reached the end of fifo");
-                        wr_ptr = 0;
+                        wr_ptr <= 0;
                     end
                     else
-                        wr_ptr++;
+                        wr_ptr <= wr_ptr +1;
                 end
                 else
                 begin
@@ -82,13 +73,14 @@ module eth_port_fifo
                 if(~empty)
                 begin
                     data_out <= mem[rd_ptr];
+                    valid <= 'b1;
                     if(rd_ptr == `FIFO_DEPTH -1)
                     begin
                         $display("SW_DEBUG FIFO: rd_ptr reached the end of fifo");
-                        rd_ptr = 0;
+                        rd_ptr <= 0;
                     end
                     else
-                        rd_ptr++;
+                        rd_ptr = rd_ptr +1;
                 end
                 else 
                 begin
@@ -96,6 +88,8 @@ module eth_port_fifo
                 end
             end
         end
+        if(valid == 1'b1)
+            valid <= 1'b0;
     end
 
 endmodule
