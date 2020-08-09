@@ -3,6 +3,12 @@ Verification Environment consists of the following elements
 eth_test_top.sv
 eth_test.sv
 eth_env.sv
+eth_monitor.sv
 eth_pkt.sv  -> eth_pkt_gen.sv -> eth_drvr.sv 
 
 tb_eth_sw_top.sv - Sanity testbench
+
+test_pkg.sv : contains the order for compilation of files and should be the only file to be compiled
+ex: <compile cmd> test_pkg.sv
+
+Keep the RTL, defines.svh, test_pkg.sv and verification environment files in the same directory for running the design 
